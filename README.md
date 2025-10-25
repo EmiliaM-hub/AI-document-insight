@@ -16,9 +16,8 @@ celem jest stworzenie asystenta biurowego, który przekształca długie dokument
 ## Struktura projektu
 - data/test_docs/ # dokumenty testowe
 - src/ # kod źródłowy aplikacji:
-    - app.py
-    - form_recognizer.py
-    - openai_summarizer.py
-    - utils.py
+    - app.py #główny plik uruchamiający aplikację
+    - form_recognizer.py #obsługa Azure Form Recognizer
+    - 
 - requirements.txt
 - README.md
