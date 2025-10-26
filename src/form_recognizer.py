@@ -65,3 +65,24 @@ def analyze_document(file_path_or_url):
         raise FileNotFoundError(f"Plik nie istnieje: {file_path}") # informacja o błędzie
 
     # Analiza dokumentu przez Form Recognizer
+    # otwiera plik i wysyła do Azure
+    try:
+        with open(file_path, "rb") as f:
+            poller = client.begin_analyze_document(
+                "prebuilt-document",  # model do ogólnej analizy dokumentów
+                document=f
+            )
+        
+        result = poller.result()  # czeka na wynik analizy
+        
+        # Wydobycie całego tekstu z dokumentu
+        extracted_text = ""
+        for page in result.pages:
+            for line in page.lines:
+                extracted_text += line.content + "\n"
+        
+        return extracted_text
+    # Usuwa plik tymczasowy jeśli był pobrany z GitHub
+    finally:
+        if remove_after and os.path.exists(file_path):
+            os.remove(file_path)
