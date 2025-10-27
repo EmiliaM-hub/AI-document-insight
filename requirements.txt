@@ -3,3 +3,7 @@ openai
 gradio
 python-docx
 pypdf2
+python-dotenv 
+azure-identity
+azure-ai-agents
+

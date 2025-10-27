@@ -1,4 +1,4 @@
-#Importujemy potrzebne biblioteki Pythona
+# Importujemy potrzebne biblioteki Pythona
 import os #pozwala pracować z systemem operacyjnym (zmienne środowiskowe)
 import requests  # biblioteka do pobierania plików z GitHub (lub innych HTTP)
 from azure.ai.formrecognizer import DocumentAnalysisClient # klient do analizy dokumentów przy użyciu Azure Form Recognizer (OCR, ekstrakcja danych)
@@ -13,15 +13,11 @@ key = os.getenv("FORM_RECOGNIZER_KEY")
 if not endpoint or not key:
     raise ValueError("Nie ustawiono FORM_RECOGNIZER_ENDPOINT lub FORM_RECOGNIZER_KEY w .env")
 
-# Utworzenie klienta do Azzure Form Recognizer
-client = DocumentAnalysisClient(
-    endpoint=endpoint, 
-    credential=AzureKeyCredential(key)
-    )
-
 # Pobieranie dokumentu - dwa rozwiązania - do decyzji, który zostawimy finalnie:
 # 1. Folder z dokumentami utworzony lokalnie
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "../data/test_docs") # trzeba podać ścieżkę lokalną (jeśli dokumnety sa zapisane lokalnie)
+
+
 
 # 2. Funkcja do pobierania dokumentów bezpośrednio z datasetu zamieszczonego na GitHub
 # Bez klonowania repozytorium. Pobiera plik z GitHub i zapisuje tymczasowo lokalnie. Zwraca ścieżkę do pobranego pliku.
@@ -42,11 +38,15 @@ def download_file_from_github(url, local_filename="temp_document"):
 
     return local_filename # zwraca ścieżkę do zapisanego pliku
 
+
+
 # Główna funkcja analizująca dokument
 # Część, która została napisana - dot. obsługi dokumentów PDF/DOCS zapisanych
 # w różnych źródłach (lokalnie i zdlanie) z automatycznym zarządzaniem ścieżkami
 # dwa rozwiązania i walidacja - czy plik istnieje
 def analyze_document(file_path_or_url):
+    remove_after = False #dla bezpieczenstwa
+
     # Obsługa plików z GitHub
     if file_path_or_url.startswith("http"): # tu należy wpisać ścieżkę do dokumentów na GitHub
         file_path = download_file_from_github(file_path_or_url)
@@ -67,21 +67,43 @@ def analyze_document(file_path_or_url):
     # Analiza dokumentu przez Form Recognizer
     # otwiera plik i wysyła do Azure
     try:
+        # Utworzenie klienta do Azzure Form Recognizer
+        client = DocumentAnalysisClient(
+            endpoint=endpoint,
+            credential=AzureKeyCredential(key)
+        )
+
         with open(file_path, "rb") as f:
             poller = client.begin_analyze_document(
                 "prebuilt-document",  # model do ogólnej analizy dokumentów
                 document=f
             )
-        
+
         result = poller.result()  # czeka na wynik analizy
-        
-        # Wydobycie całego tekstu z dokumentu
-        extracted_text = ""
-        for page in result.pages:
-            for line in page.lines:
-                extracted_text += line.content + "\n"
-        
-        return extracted_text
+        # Szybsza wersja, ale może nie działać
+        if result.content:
+            return {
+                "text": result.content,
+                "page_count": len(result.pages) if hasattr(result, "pages") else None,
+                "source": file_path,
+            }
+        # Zamiennie - Wydobycie całego tekstu z dokumentu
+        else:
+            extracted_text = []
+            for page in result.pages:
+                for line in page.lines:
+                    extracted_text += line.content + "\n"
+
+            final_text = "\n".join(extracted_text) if extracted_text else "Brak odczytanego tekstu."
+            return {
+                "text": final_text,
+                "page_count": len(result.pages) if hasattr(result, "pages") else None,
+                "source": file_path,
+            }
+
+    except Exception as e:
+        return f"Błąd Form Recognizer: {e}"
+
     # Usuwa plik tymczasowy jeśli był pobrany z GitHub
     finally:
         if remove_after and os.path.exists(file_path):
